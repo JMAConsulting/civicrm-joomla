@@ -2,8 +2,8 @@
 
 defined('JPATH_PLATFORM') or die;
 
-// for some reason Joomla doesn't autoload JFormFieldRules in this context
-require_once JPATH_SITE . '/libraries/joomla/form/fields/rules.php';
+use Joomla\CMS\Access\Access;
+use Joomla\CMS\Language\Text;
 
 class JFormFieldCiviperms extends JFormFieldRules {
 
@@ -49,16 +49,16 @@ class JFormFieldCiviperms extends JFormFieldRules {
     // Add Javascript for permission change
     JHtml::_('script', 'system/permissions.js', array('version' => 'auto', 'relative' => true));
     // Load JavaScript message titles
-    JText::script('ERROR');
-    JText::script('WARNING');
-    JText::script('NOTICE');
-    JText::script('MESSAGE');
+    Text::script('ERROR');
+    Text::script('WARNING');
+    Text::script('NOTICE');
+    Text::script('MESSAGE');
     // Add strings for JavaScript error translations.
-    JText::script('JLIB_JS_AJAX_ERROR_CONNECTION_ABORT');
-    JText::script('JLIB_JS_AJAX_ERROR_NO_CONTENT');
-    JText::script('JLIB_JS_AJAX_ERROR_OTHER');
-    JText::script('JLIB_JS_AJAX_ERROR_PARSE');
-    JText::script('JLIB_JS_AJAX_ERROR_TIMEOUT');
+    Text::script('JLIB_JS_AJAX_ERROR_CONNECTION_ABORT');
+    Text::script('JLIB_JS_AJAX_ERROR_NO_CONTENT');
+    Text::script('JLIB_JS_AJAX_ERROR_OTHER');
+    Text::script('JLIB_JS_AJAX_ERROR_PARSE');
+    Text::script('JLIB_JS_AJAX_ERROR_TIMEOUT');
     // Initialise some field attributes.
     $section = $this->section;
     $assetField = $this->assetField;
@@ -120,155 +120,151 @@ class JFormFieldCiviperms extends JFormFieldRules {
     // Prepare output
     $html = array();
     // Description
-    $html[] = '<p class="rule-desc">' . JText::_('JLIB_RULES_SETTINGS_DESC') . '</p>';
-    // Begin tabs
-    $html[] = '<div class="tabbable tabs-left" data-ajaxuri="' . $ajaxUri . '" id="permissions-sliders">';
-    // Building tab nav
-    $html[] = '<ul class="nav nav-tabs">';
-    foreach ($groups as $group) {
-      // Initial Active Tab
-      $active = (int) $group->value === 1 ? ' class="active"' : '';
-      $html[] = '<li' . $active . '>';
-      $html[] = '<a href="#permission-' . $group->value . '" data-toggle="tab">';
-      $html[] = JLayoutHelper::render('joomla.html.treeprefix', array('level' => $group->level + 1)) . $group->text;
-      $html[] = '</a>';
-      $html[] = '</li>';
-    }
-    $html[] = '</ul>';
-    $html[] = '<div class="tab-content">';
-    // Start a row for each user group.
-    foreach ($groups as $group) {
-      // Initial Active Pane
-      $active = (int) $group->value === 1 ? ' active' : '';
-      $html[] = '<div class="tab-pane' . $active . '" id="permission-' . $group->value . '">';
-      $html[] = '<table class="table table-striped">';
-      $html[] = '<thead>';
-      $html[] = '<tr>';
-      $html[] = '<th class="actions" id="actions-th' . $group->value . '">';
-      $html[] = '<span class="acl-action">' . JText::_('JLIB_RULES_ACTION') . '</span>';
-      $html[] = '</th>';
-      $html[] = '<th class="settings" id="settings-th' . $group->value . '">';
-      $html[] = '<span class="acl-action">' . JText::_('JLIB_RULES_SELECT_SETTING') . '</span>';
-      $html[] = '</th>';
-      $html[] = '<th id="aclactionth' . $group->value . '">';
-      $html[] = '<span class="acl-action">' . JText::_('JLIB_RULES_CALCULATED_SETTING') . '</span>';
-      $html[] = '</th>';
-      $html[] = '</tr>';
-      $html[] = '</thead>';
-      $html[] = '<tbody>';
-      // Check if this group has super user permissions
-      $isSuperUserGroup = JAccess::checkGroup($group->value, 'core.admin');
-      foreach ($actions as $action) {
-        $html[] = '<tr>';
-        $html[] = '<td headers="actions-th' . $group->value . '">';
-        $html[] = '<label for="' . $this->id . '_' . $action->name . '_' . $group->value . '" class="hasTooltip" title="'
-            . JHtml::_('tooltipText', $action->title, $action->description) . '">';
-        $html[] = JText::_($action->title);
-        $html[] = '</label>';
-        $html[] = '</td>';
-        $html[] = '<td headers="settings-th' . $group->value . '">';
-        $html[] = '<select onchange="sendPermissions.call(this, event)" data-chosen="true" class="input-small novalidate"'
-            . ' name="' . $this->name . '[' . $action->name . '][' . $group->value . ']"'
-            . ' id="' . $this->id . '_' . $action->name . '_' . $group->value . '"'
-            . ' title="' . strip_tags(JText::sprintf('JLIB_RULES_SELECT_ALLOW_DENY_GROUP', JText::_($action->title), trim($group->text))) . '">';
-        /**
-         * Possible values:
-         * null = not set means inherited
-         * false = denied
-         * true = allowed
-         */
-        // Get the actual setting for the action for this group.
-        $assetRule = $newItem === false ? $assetRules->allow($action->name, $group->value) : null;
-        // Build the dropdowns for the permissions sliders
-        // The parent group has "Not Set", all children can rightly "Inherit" from that.
-        $html[] = '<option value=""' . ($assetRule === null ? ' selected="selected"' : '') . '>'
-            . JText::_(empty($group->parent_id) && $isGlobalConfig ? 'JLIB_RULES_NOT_SET' : 'JLIB_RULES_INHERITED') . '</option>';
-        $html[] = '<option value="1"' . ($assetRule === true ? ' selected="selected"' : '') . '>' . JText::_('JLIB_RULES_ALLOWED')
-            . '</option>';
-        $html[] = '<option value="0"' . ($assetRule === false ? ' selected="selected"' : '') . '>' . JText::_('JLIB_RULES_DENIED')
-            . '</option>';
-        $html[] = '</select>&#160; ';
-        $html[] = '<span id="icon_' . $this->id . '_' . $action->name . '_' . $group->value . '"' . '></span>';
-        $html[] = '</td>';
-        // Build the Calculated Settings column.
-        $html[] = '<td headers="aclactionth' . $group->value . '">';
-        $result = array();
-        // Get the group, group parent id, and group global config recursive calculated permission for the chosen action.
-        $inheritedGroupRule = JAccess::checkGroup((int) $group->value, $action->name, $assetId);
-        $inheritedGroupParentAssetRule = !empty($parentAssetId) ? JAccess::checkGroup($group->value, $action->name, $parentAssetId) : null;
-        $inheritedParentGroupRule = !empty($group->parent_id) ? JAccess::checkGroup($group->parent_id, $action->name, $assetId) : null;
-        // Current group is a Super User group, so calculated setting is "Allowed (Super User)".
-        if ($isSuperUserGroup) {
-          $result['class'] = 'label label-success';
-          $result['text'] = '<span class="icon-lock icon-white"></span>' . JText::_('JLIB_RULES_ALLOWED_ADMIN');
-        }
-        // Not super user.
-        else {
-          // First get the real recursive calculated setting and add (Inherited) to it.
-          // If recursive calculated setting is "Denied" or null. Calculated permission is "Not Allowed (Inherited)".
-          if ($inheritedGroupRule === null || $inheritedGroupRule === false) {
-            $result['class'] = 'label label-important';
-            $result['text'] = JText::_('JLIB_RULES_NOT_ALLOWED_INHERITED');
-          }
-          // If recursive calculated setting is "Allowed". Calculated permission is "Allowed (Inherited)".
-          else {
-            $result['class'] = 'label label-success';
-            $result['text'] = JText::_('JLIB_RULES_ALLOWED_INHERITED');
-          }
-          // Second part: Overwrite the calculated permissions labels if there is an explicit permission in the current group.
-          /**
-           * @to do: incorrect info
-           * If a component has a permission that doesn't exists in global config (ex: frontend editing in com_modules) by default
-           * we get "Not Allowed (Inherited)" when we should get "Not Allowed (Default)".
-           */
-          // If there is an explicit permission "Not Allowed". Calculated permission is "Not Allowed".
-          if ($assetRule === false) {
-            $result['class'] = 'label label-important';
-            $result['text'] = JText::_('JLIB_RULES_NOT_ALLOWED');
-          }
-          // If there is an explicit permission is "Allowed". Calculated permission is "Allowed".
-          elseif ($assetRule === true) {
-            $result['class'] = 'label label-success';
-            $result['text'] = JText::_('JLIB_RULES_ALLOWED');
-          }
-          // Third part: Overwrite the calculated permissions labels for special cases.
-          // Global configuration with "Not Set" permission. Calculated permission is "Not Allowed (Default)".
-          if (empty($group->parent_id) && $isGlobalConfig === true && $assetRule === null) {
-            $result['class'] = 'label label-important';
-            $result['text'] = JText::_('JLIB_RULES_NOT_ALLOWED_DEFAULT');
-          }
-          /**
-           * Component/Item with explicit "Denied" permission at parent Asset (Category, Component or Global config) configuration.
-           * Or some parent group has an explicit "Denied".
-           * Calculated permission is "Not Allowed (Locked)".
-           */
-          elseif ($inheritedGroupParentAssetRule === false || $inheritedParentGroupRule === false) {
-            $result['class'] = 'label label-important';
-            $result['text'] = '<span class="icon-lock icon-white"></span>' . JText::_('JLIB_RULES_NOT_ALLOWED_LOCKED');
-          }
-        }
-        $html[] = '<span class="' . $result['class'] . '">' . $result['text'] . '</span>';
-        $html[] = '</td>';
-        $html[] = '</tr>';
-      }
-      $html[] = '</tbody>';
-      $html[] = '</table></div>';
-    }
-    $html[] = '</div></div>';
-    $html[] = '<div class="clr"></div>';
-    $html[] = '<div class="alert">';
+    $html[] = '<details><summary class="rule-notes">' . Text::_('JLIB_RULES_SETTINGS_DESC') . '</summary>';
+
     if ($section === 'component' || !$section) {
-      $html[] = JText::_('JLIB_RULES_SETTING_NOTES');
+      $html[] = '<div class="rule-notes">' . Text::_('JLIB_RULES_SETTING_NOTES') . '</div></details>';
     }
     else {
-      $html[] = JText::_('JLIB_RULES_SETTING_NOTES_ITEM');
+      $html[] = '<div class="rule-notes">' . Text::alt('JLIB_RULES_SETTING_NOTES_ITEM', $component . '_' . $section) . '</div></details>';
     }
-    $html[] = '</div>';
+
+    // Begin tabs
+    $html[] = '<div class="tabbable tabs-left" data-ajaxuri="' . $ajaxUri . '" id="permissions-sliders">';
+    $html[] = '<joomla-field-permissions class="row mb-2" data-uri="' . $ajaxUri . '" '. $this->dataAttribute . '>';
+    $html[] = '<joomla-tab orientation="vertical" id="permissions-sliders" recall breakpoint="728">';
+    foreach ($groups as $group) {
+      $active = (int) $group->value === 1 ? ' active' : '';
+      $html[] = '<joomla-tab-element class="tab-pane"' . $active . 'name="' . htmlentities(JLayoutHelper::render('joomla.html.treeprefix', array('level' => $group->level + 1)), ENT_COMPAT, 'utf-8') . $this->text . '" id="permission-' . $group->value . '">';
+
+      $html[] = '<table class="table respTable">
+        <thead>
+          <tr>
+            <th class="actions w-30" id="actions-th' . $group->value . '">
+              <span class="acl-action">' . Text::_('JLIB_RULES_ACTION') . '</span>
+            </th>
+
+            <th class="settings w-40" id="settings-th' . $group->value . '">
+              <span class="acl-action">' . Text::_('JLIB_RULES_SELECT_SETTING') . '</span>
+            </th>
+
+            <th class="w-30" id="aclaction-th' . $group->value . '">
+              <span class="acl-action">' . Text::_('JLIB_RULES_CALCULATED_SETTING') . '</span>
+            </th>
+          </tr>
+        </thead>';
+        $isSuperUserGroup = Access::checkGroup($group->value, 'core.admin');
+        $html[] = '<tbody>';
+        foreach ($actions as $action) {
+          $html[] = '<tr>
+            <td class="oddCol" data-label="' . Text::_('JLIB_RULES_ACTION') . '" headers="actions-th' . $group->value . '">
+              <label for="' . $this->id . '_' . $action->name . '_' . $group->value . '">' . Text::_($action->title) . '</label>';
+          if (!empty($action->description)) {
+            $html[] = '<div role="tooltip" id="tip-' . $this->id . '">' . htmlspecialchars(Text::_($action->description)) . '</div>';
+          }
+          $html[] = '</td>
+            <td data-label="' . Text::_('JLIB_RULES_SELECT_SETTING') . '" headers="settings-th'. $group->value . '">
+              <div class="d-flex align-items-center">
+                <select data-onchange-task="permissions.apply"
+                    class="form-select novalidate"
+                    name="' . $name . '[' . $action->name . '][' . $group->value . ']"
+                    id="' . $this->id . '_' . $action->name . '_' . $group->value . '">';
+          // Get the actual setting for the action for this group.
+          $assetRule = $newItem === false ? $assetRules->allow($action->name, $group->value) : null;
+          // Build the dropdowns for the permissions sliders
+          // The parent group has "Not Set", all children can rightly "Inherit" from that.
+          $html[] = '<option value=""' . ($assetRule === null ? ' selected="selected"' : '') . '>'
+              . Text::_(empty($group->parent_id) && $isGlobalConfig ? 'JLIB_RULES_NOT_SET' : 'JLIB_RULES_INHERITED') . '</option>';
+          $html[] = '<option value="1"' . ($assetRule === true ? ' selected="selected"' : '') . '>' . Text::_('JLIB_RULES_ALLOWED')
+              . '</option>';
+          $html[] = '<option value="0"' . ($assetRule === false ? ' selected="selected"' : '') . '>' . Text::_('JLIB_RULES_DENIED')
+              . '</option>';
+          $html[] = '</select>&#160; ';
+          $html[] = '<span id="icon_' . $this->id . '_' . $action->name . '_' . $group->value . '"></span>';
+          $html[] = '</div></td>';
+
+          $inheritedGroupRule 	= Access::checkGroup((int) $group->value, $action->name, $assetId);
+          $inheritedGroupParentAssetRule = !empty($parentAssetId) ? Access::checkGroup($group->value, $action->name, $parentAssetId) : null;
+          $inheritedParentGroupRule      = !empty($group->parent_id) ? Access::checkGroup($group->parent_id, $action->name, $assetId) : null;
+          $html[] = '<td data-label="' . Text::_('JLIB_RULES_CALCULATED_SETTING') . '" headers="aclaction-th' . $group->value . '">';
+          $result = [];
+
+          if ($isSuperUserGroup) {
+            $result['class'] = 'badge bg-success';
+            $result['text']  = '<span class="icon-lock icon-white" aria-hidden="true"></span>' . Text::_('JLIB_RULES_ALLOWED_ADMIN');
+          }
+          else {
+            // First get the real recursive calculated setting and add (Inherited) to it.
+
+            // If recursive calculated setting is "Denied" or null. Calculated permission is "Not Allowed (Inherited)".
+            if ($inheritedGroupRule === null || $inheritedGroupRule === false)
+            {
+              $result['class'] = 'badge bg-danger';
+              $result['text']  = Text::_('JLIB_RULES_NOT_ALLOWED_INHERITED');
+            }
+            // If recursive calculated setting is "Allowed". Calculated permission is "Allowed (Inherited)".
+            else
+            {
+              $result['class'] = 'badge bg-success';
+              $result['text']  = Text::_('JLIB_RULES_ALLOWED_INHERITED');
+            }
+
+            // Second part: Overwrite the calculated permissions labels if there is an explicit permission in the current group.
+
+            /**
+            * @to do: incorrect info
+            * If a component has a permission that doesn't exists in global config (ex: frontend editing in com_modules) by default
+            * we get "Not Allowed (Inherited)" when we should get "Not Allowed (Default)".
+            */
+
+            // If there is an explicit permission "Not Allowed". Calculated permission is "Not Allowed".
+            if ($assetRule === false)
+            {
+              $result['class'] = 'badge bg-danger';
+              $result['text']  = 	Text::_('JLIB_RULES_NOT_ALLOWED');
+            }
+            // If there is an explicit permission is "Allowed". Calculated permission is "Allowed".
+            elseif ($assetRule === true)
+            {
+              $result['class'] = 'badge bg-success';
+              $result['text']  = Text::_('JLIB_RULES_ALLOWED');
+            }
+
+            // Third part: Overwrite the calculated permissions labels for special cases.
+
+            // Global configuration with "Not Set" permission. Calculated permission is "Not Allowed (Default)".
+            if (empty($group->parent_id) && $isGlobalConfig === true && $assetRule === null)
+            {
+              $result['class'] = 'badge bg-danger';
+              $result['text']  = Text::_('JLIB_RULES_NOT_ALLOWED_DEFAULT');
+            }
+
+            /**
+            * Component/Item with explicit "Denied" permission at parent Asset (Category, Component or Global config) configuration.
+            * Or some parent group has an explicit "Denied".
+            * Calculated permission is "Not Allowed (Locked)".
+            */
+            elseif ($inheritedGroupParentAssetRule === false || $inheritedParentGroupRule === false)
+            {
+              $result['class'] = 'badge bg-danger';
+              $result['text']  = '<span class="icon-lock icon-white" aria-hidden="true"></span>'. Text::_('JLIB_RULES_NOT_ALLOWED_LOCKED');
+            }
+          }
+          $html[] = '<output><span class="' . $result['class'] . '">' . $result['text'] . '</span></output>';
+          $html[] = '</td>';
+          $html[] = '</tr>';
+        }
+        $html[] = '</tbody>';
+        $html[] = '</table>';
+        $html[] = '</joomla-tab-element>';
+    }
+    $html[] = '</joomla-tab>';
+    $html[] = '</joomla-field-permissions>';
     return implode("\n", $html);
   }
 
   /**
-   * Wrapper around JAccess::getActions() to retrieve CiviCRM extension as well
+   * Wrapper around Access::getActionsFromFile() to retrieve CiviCRM extension as well
    * as core permissions.
    *
    * @param type $component
@@ -277,7 +273,7 @@ class JFormFieldCiviperms extends JFormFieldRules {
    *   @see JAccess::getActions()
    */
   private static function getCiviperms($component, $section) {
-    $actions = JAccess::getActions($component, $section);
+    $actions = Access::getActionsFromFile(JPATH_ADMINISTRATOR . "/components/{$component}/access.xml", "/access/section[@name='{$section}']/");
 
     $extPerms = self::$civiConfig->userPermissionClass->getAllModulePermissions(TRUE);
     foreach ($extPerms as $key => $perm) {
